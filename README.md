@@ -1,0 +1,2 @@
+# gcpmetadata
+GCPのmetadata周りを扱うutility
