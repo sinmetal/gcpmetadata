@@ -26,7 +26,15 @@ func OnGCP() bool {
 // GCP上で動いている場合は、Project Metadataから取得し、そうでなければ、環境変数から取得する
 func GetProjectID() (string, error) {
 	if !metadata.OnGCE() {
-		return os.Getenv("GCLOUD_PROJECT"), nil
+		p := os.Getenv("GOOGLE_CLOUD_PROJECT")
+		if p != "" {
+			return p, nil
+		}
+		p = os.Getenv("GCLOUD_PROJECT")
+		if p != "" {
+			return p, nil
+		}
+		return "", ErrNotFound
 	}
 
 	projectID, err := metadata.ProjectID()
