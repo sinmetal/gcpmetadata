@@ -60,6 +60,20 @@ func GetServiceAccountEmail() (string, error) {
 	return string(sa), nil
 }
 
+// GetLocation is Appが動いているLocationを取得する
+// 呼び出す場所によって、Zoneが返ってくるか、Regionが返ってくるかが変わる
+// 例えば、Compute EngineであればZoneが返ってくるが、Cloud RunではRegionが返ってくる
+func GetLocation() (string, error) {
+	if !metadata.OnGCE() {
+		return os.Getenv("INSTANCE_LOCATION"), nil
+	}
+	zone, err := getMetadata("zone")
+	if err != nil {
+		return "", failure.Wrap(err, failure.Message("failed get Zone"))
+	}
+	return string(zone), nil
+}
+
 // GetInstanceAttribute is Instance Metadataを取得する
 // GCP以外で動いている時は、環境変数を取得する
 func GetInstanceAttribute(key string) (string, error) {
