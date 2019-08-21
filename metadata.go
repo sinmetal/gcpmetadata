@@ -1,17 +1,15 @@
 package gcpmetadata
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/morikuni/failure"
 )
-
-var ErrNotFound = errors.New("not found")
 
 // OnGCP is GCP上で動いているかどうかを返す
 // GCP上と判断されるか確認したのは以下
@@ -34,7 +32,7 @@ func GetProjectID() (string, error) {
 		if p != "" {
 			return p, nil
 		}
-		return "", ErrNotFound
+		return "", ErrNotFound("project id environment valiable is not found. plz set $GOOGLE_CLOUD_PROJECT")
 	}
 
 	projectID, err := metadata.ProjectID()
@@ -42,7 +40,7 @@ func GetProjectID() (string, error) {
 		return "", err
 	}
 	if projectID == "" {
-		return "", ErrNotFound
+		return "", ErrNotFound("project id is not found")
 	}
 	return projectID, nil
 }
@@ -60,18 +58,53 @@ func GetServiceAccountEmail() (string, error) {
 	return string(sa), nil
 }
 
-// GetLocation is Appが動いているLocationを取得する
-// 呼び出す場所によって、Zoneが返ってくるか、Regionが返ってくるかが変わる
-// 例えば、Compute EngineであればZoneが返ってくるが、Cloud RunではRegionが返ってくる
-func GetLocation() (string, error) {
+// GetRegion is Appが動いているRegionを取得する
+func GetRegion() (string, error) {
 	if !metadata.OnGCE() {
-		return os.Getenv("INSTANCE_LOCATION"), nil
+		return os.Getenv("INSTANCE_REGION"), nil
 	}
 	zone, err := getMetadata("zone")
 	if err != nil {
 		return "", failure.Wrap(err, failure.Message("failed get Zone"))
 	}
-	return string(zone), nil
+
+	return ExtractionRegion(string(zone))
+}
+
+// GetZone is Appが動いているZoneを取得する
+func GetZone() (string, error) {
+	if !metadata.OnGCE() {
+		return os.Getenv("INSTANCE_ZONE"), nil
+	}
+	zone, err := getMetadata("zone")
+	if err != nil {
+		return "", failure.Wrap(err, failure.Message("failed get Zone"))
+	}
+
+	return ExtractionZone(string(zone))
+}
+
+// ExtractionRegion is Metadata Serverから取得する projects/[NUMERIC_PROJECT_ID]/zones/[ZONE] 形式の文字列から、Region部分を取り出す
+func ExtractionRegion(metaZone string) (string, error) {
+	l := strings.Split(string(metaZone), "/")
+	if len(l) < 1 {
+		return "", ErrInvalidArgument("projects/[NUMERIC_PROJECT_ID]/zones/[ZONE]", metaZone)
+	}
+	v := l[len(l)-1]
+	if len(v) < 3 {
+		return "", ErrInvalidArgument("projects/[NUMERIC_PROJECT_ID]/zones/[ZONE]", metaZone)
+	}
+	v = v[:len(v)-2]
+	return v, nil
+}
+
+// ExtractionZone is Metadata Serverから取得する projects/[NUMERIC_PROJECT_ID]/zones/[ZONE] 形式の文字列から、Zone部分を取り出す
+func ExtractionZone(metaZone string) (string, error) {
+	l := strings.Split(string(metaZone), "/")
+	if len(l) < 1 {
+		return "", ErrInvalidArgument("projects/[NUMERIC_PROJECT_ID]/zones/[ZONE]", metaZone)
+	}
+	return l[len(l)-1], nil
 }
 
 // GetInstanceAttribute is Instance Metadataを取得する
