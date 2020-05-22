@@ -1,3 +1,5 @@
+https://github.com/sinmetal/gcpbox にお引越し
+
 # gcpmetadata
 GCPのmetadata周りを扱うutility
 
